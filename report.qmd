@@ -1,25 +1,93 @@
 ---
-title: "Untitled"
+title: "Quarto Report 1"
+Name: "Cecelia Williamson"
 format: html
 ---
 
-## Quarto
+### Quarto Report 1 of the Spotify dataset exploring the correlation between BPM and dancibility
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
-
+## Set up for render settings, loading libraries, and reading in DF
 ```{r}
-1 + 1
-```
-
-You can add options to executable code like this 
-
-```{r}
+#| label: setup
+#| warning: false
 #| echo: false
-2 * 2
+#| message: false
+
+
+library(ggplot2)
+library(patchwork)
+library(tidyverse)
+library(kableExtra)
+
+
+spotify <- read.csv("spotify.csv")
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+##function for knitr styling implementation
+```{r}
+my_table_formatting <- function(table_input, ...){
+  table_input %>%
+    knitr::kable(...)%>%
+  kable_styling(full_width = FALSE, 
+                bootstrap_options = c("hover","bordered")) 
+}
+```
+##summary data tables in knitr kable and datatable format with styling 
+```{r}
+spotify %>%
+  group_by(mode) %>%
+  summarise(
+    bpm_mean = mean(bpm),
+    bpm_std = sd(bpm),
+  )%>% 
+  knitr::kable(col.names = c("Mode", "BPM Mean", "BPM SD"), 
+align = c('c','c','c'))%>%
+kable_styling(full_width = FALSE, 
+                bootstrap_options = c("hover","bordered")) %>%
+column_spec(1, italic = TRUE) %>%
+row_spec(2, background = 'lavender', bold = TRUE)
+
+```
+
+```{r}
+
+
+spotify %>%
+group_by("Release Month" = released_month)%>%
+  summarise(
+   "Mean Streams(in Millions)" = mean(streams_mill) )%>%
+DT::datatable()
+```
+
+##initial plot seemed to have some outliers so quick function applied to remove outliers outside the 25th and 75th percentile. No major change in plot. 
+```{r}
+
+
+Q <- quantile(spotify$danceability, probs = c(0.25, 0.75))
+iqr <- IQR(spotify$danceability)
+
+eliminated <- subset(spotify, 
+                    spotify$danceability > (Q[1] - 1.5*iqr) & 
+                     spotify$danceability < (Q[2] + 1.5*iqr))
+
+Q <- quantile(spotify$energy, probs = c(0.25, 0.75))
+iqr <- IQR(spotify$energy)
+
+eliminated <- subset(spotify, 
+                    spotify$energy > (Q[1] - 1.5*iqr) & 
+                     spotify$energy < (Q[2] + 1.5*iqr))
+```
+
+##ggplot for correlation of music energy and danceability
+```{r}
+ggplot(eliminated, aes(x=energy, y=danceability, color = danceability)) + 
+  geom_point(size = 4) +
+ geom_smooth(method=lm , color="black", fill="#69b3a2", se=TRUE) +
+  scale_color_gradient(low = "lightblue", high = "magenta")+
+labs(
+    x = "Energy of Song",
+    y = "Danceability",
+    title = "Correlation between Danceability and Music Energy "
+  )
+```
+
